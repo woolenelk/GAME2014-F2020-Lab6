@@ -12,10 +12,14 @@ public class OpossomBehaviour : MonoBehaviour
     public Transform lookFrontPoint;
     public LayerMask collisionLayer;
     public LayerMask wallcollisionLayer;
+    public Vector2 Direction;
+    public float z_rotate;
     // Start is called before the first frame update
     void Start()
     {
+        z_rotate = 0;
         rigidbody2D = GetComponent<Rigidbody2D>();
+        Direction = Vector2.left;
     }
 
     // Update is called once per frame
@@ -25,12 +29,13 @@ public class OpossomBehaviour : MonoBehaviour
         _LookAhead();
         _Move();  
     }
+    
 
-    private void _Move()
+private void _Move()
     {
         if (hasGroundAhead)
         {
-            rigidbody2D.AddForce(Vector2.left * runForce * Time.deltaTime* transform.localScale.x);
+            rigidbody2D.AddForce(Direction * runForce * Time.deltaTime* transform.localScale.x);
             
         }
         else
@@ -41,7 +46,8 @@ public class OpossomBehaviour : MonoBehaviour
     }
     private void _LookInFront()
     {
-        if (Physics2D.Linecast(transform.position, lookFrontPoint.position, wallcollisionLayer))
+        var wallhit = Physics2D.Linecast(transform.position, lookFrontPoint.position, wallcollisionLayer);
+        if (wallhit)
         {
             _FlipXLocalScale();
         }
@@ -49,7 +55,76 @@ public class OpossomBehaviour : MonoBehaviour
     }
     private void _LookAhead()
     {
-        hasGroundAhead = Physics2D.Linecast(transform.position, groundAheadPoint.position,collisionLayer);
+        Vector3 testAngle = (transform.position - lookFrontPoint.position);
+        Vector2 testAngle2D = new Vector2(testAngle.x, testAngle.y);
+
+        
+        var groundHit = Physics2D.Linecast(transform.position, groundAheadPoint.position, collisionLayer);
+
+        float angle = Vector2.SignedAngle(testAngle2D, groundHit.normal);
+        
+        float angleDir = 1;
+        if (transform.localScale.x > 0)
+        {
+            if (angle > 80)
+            {
+                angleDir = -1;
+                // going up 
+            }
+            else if (angle > 0)
+            {
+                angleDir = 1;
+            }
+            //else
+            //{
+            //    angleDir = 1;
+            //    // going down
+            //}
+        }
+        else
+        {
+            if (angle > 0)
+            {
+                angleDir = -1;
+                // going up 
+            }
+            else if (angle < -80)
+            {
+                angleDir = 1;
+            }
+            else
+            {
+                angleDir = -1;
+                // going down
+            }
+        }
+        if (groundHit)
+        {
+            if (groundHit.collider.CompareTag("Ramps"))
+            {
+                Debug.Log("normal = " + groundHit.normal);
+                Debug.Log("angle = " + angle);
+                Debug.Log("angleDir = " + angleDir);
+
+                z_rotate = Mathf.Lerp(z_rotate, -26.0f*angleDir /*transform.localScale.x*angleDir*/, 0.08f);
+                Direction = (Vector2.left + (Vector2.up* angleDir/*transform.localScale.x*angleDir*/)).normalized;
+                transform.rotation = Quaternion.Euler(0.0f, 0.0f, z_rotate);
+                Debug.Log("Ramps");
+            }
+            if (groundHit.collider.CompareTag("Platforms"))
+            {
+                z_rotate = Mathf.Lerp(z_rotate, 0.0f, 0.08f);
+                Direction = Vector2.left;
+                transform.rotation = Quaternion.Euler(0.0f, 0.0f, z_rotate);
+                Debug.Log("Platforms");
+            }
+            hasGroundAhead = true;
+        }
+        else
+        {
+            
+            hasGroundAhead = false;
+        }
 
         Debug.DrawLine(transform.position, groundAheadPoint.position, Color.green);
     }
